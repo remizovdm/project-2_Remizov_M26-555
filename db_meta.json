@@ -1,1 +1,1 @@
-{"bulonia": {"columns": ["ID:int", "name:str"]}}
+{"users": {"columns": ["ID:int", "name:str", "age:int", "is_active:bool"]}, "students": {"columns": ["ID:int", "name:str", "age:int", "passed_the_test:bool"]}}
