@@ -4,8 +4,8 @@ from primitive_db.engine import run
 
 
 def main():
+    """Точка входа в приложение"""
     run()
-    # print("DB project is running!")
 
 if __name__ == "__main__":
     main()

@@ -1,8 +1,19 @@
+import json
+
+from primitive_db.constants import VALID_TYPES
+from primitive_db.decorators import (
+  confirm_action,
+  create_cacher,
+  handle_db_errors,
+  log_time,
+)
 from primitive_db.utils import load_table_data
 
+cached = create_cacher()
 
+@handle_db_errors
 def create_table(metadata, table_name, columns):
-  valid_types = ('int','str','bool')
+  """Создание таблицы"""
   if table_name in metadata:
     print(f"Таблица {table_name} уже существует!")
     return None
@@ -11,15 +22,18 @@ def create_table(metadata, table_name, columns):
   for column in columns_with_id:
     columns_separated = column.split(':')
     column_types.append(columns_separated[1])
-  if all(item in valid_types for item in column_types):
+  if all(item in VALID_TYPES for item in column_types):
     metadata[table_name] = {"columns": columns_with_id}
     return metadata
   else:
-    print(f"Некорректный тип данных")
+    print("Некорректный тип данных")
     return None
 
 
+@handle_db_errors
+@confirm_action("удаление таблицы")
 def drop_table(metadata, table_name):
+  """Удаление таблицы"""
   if table_name not in metadata:
     print(f"Таблица {table_name} отсутствует!")
     return None
@@ -29,8 +43,10 @@ def drop_table(metadata, table_name):
 
   return metadata
 
-
+@handle_db_errors
+@log_time
 def insert(metadata, table_name, values):
+  """Добавление данных в таблицу"""
   if table_name not in metadata:
     print(f"Таблица {table_name} не существует!")
     return None
@@ -43,11 +59,7 @@ def insert(metadata, table_name, values):
   for column, value in zip(columns[1:], values):
     column_name, column_type = column.split(":")
     if column_type == "int":
-      try:
-        value = int(value)
-      except ValueError:
-        print(f"Значение {column_name} должно быть целым числом")
-        return None
+      value = int(value)
     elif column_type == "bool":
       if value.lower() == "true":
         value = True
@@ -59,7 +71,6 @@ def insert(metadata, table_name, values):
     values_converted.append(value)
 
 
-  filepath = f"data/{table_name}.json"
   data = load_table_data(table_name)
 
   if not data:
@@ -76,22 +87,29 @@ def insert(metadata, table_name, values):
   data.append(new_entry)
   return data
 
-
+@handle_db_errors
+@log_time
 def select(table_data, where_clause=None):
-  if where_clause == None:
-      return table_data
-  else:
-    result = []
-    clause = where_clause
-    key = list(clause.keys())[0]
-    value = list(clause.values())[0]
-    for table in table_data:
-      if table[key] == value:
-        result.append(table)
-    return result
+  """Выбор записей из таблицы по заданному условию"""
+  cache_key = json.dumps([table_data, where_clause], sort_keys=True)
 
+  def get_result():
+    if where_clause is None:
+        return table_data
+    else:
+      result = []
+      clause = where_clause
+      key = list(clause.keys())[0]
+      value = list(clause.values())[0]
+      for table in table_data:
+        if table[key] == value:
+          result.append(table)
+      return result
+  return cached(cache_key, get_result)
 
+@handle_db_errors
 def update(table_data, set_clause, where_clause):
+  """Обновление таблицы"""
   clause = where_clause
   clause_for_update = set_clause
   key = list(clause.keys())[0]
@@ -103,8 +121,10 @@ def update(table_data, set_clause, where_clause):
         table[new_key] = new_value
   return table_data
 
-
+@handle_db_errors
+@confirm_action("удаление записи")
 def delete(table_data, where_clause):
+  """Удаление таблицы"""
   clause = where_clause
   key = list(clause.keys())[0]
   value = list(clause.values())[0]
